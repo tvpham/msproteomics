@@ -7,7 +7,7 @@ import sys
 import os
 import subprocess
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 #print('Compile siteloc')
 rootdir = os.path.abspath(os.path.dirname(__file__))
@@ -16,9 +16,6 @@ print(tool_path)
 p = subprocess.Popen(["make"], stdout = subprocess.PIPE, cwd = tool_path)
 p.wait()
 #print('Done.')
-
-with open('README.md') as f:
-    long_description = f.read()
 
 extra_compile_args = None
 extra_link_args = None
@@ -54,7 +51,7 @@ setup(
     author_email = 't.pham@amsterdamumc.nl',
     license = 'Apache License 2.0',
     packages = ['msproteomics'],
-    long_description = long_description,
+    long_description = """# msproteomics sitereport: reporting DIA-MS phosphoproteomics experiments at site level with ease\n""",
     long_description_content_type = 'text/markdown',
     classifiers = [
         'Development Status :: 4 - Beta',

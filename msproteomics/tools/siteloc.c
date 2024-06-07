@@ -34,9 +34,9 @@
 #include <math.h>
 
 /* --- */
-#define VERSION_STRING "0.2.7"
+#define VERSION_STRING "0.3.1"
 /* This one is printed in the help blurp */
-#define STAMP_DATE "Mon Dec 11 16:11:20 CET 2023"
+#define STAMP_DATE "Fri Jun  7 02:33:18 PM CEST 2024"
 
 #define ERROR_FAILED -1
 
@@ -47,6 +47,11 @@
 #define EXTRA_OUTPUT_COLNAMES "\tProtein.Sites\tFasta.Files\tProteins.Fasta"\
     "\tPeptide.Backbone\tPeptide.Offsets\tNr.Mods\tNr.Phospho"\
     "\tPhospho.Site.Specs\tFragment.Rel.Id\tFragment.Intensity"
+/* THese are the columns when no fragment intensity
+ * expansion takes place. */
+#define EXTRA_OUTPUT_COLNAMES_NOEXP "\tProtein.Sites\tFasta.Files\tProteins.Fasta"\
+    "\tPeptide.Backbone\tPeptide.Offsets\tNr.Mods\tNr.Phospho"\
+    "\tPhospho.Site.Specs\tFragment.Intensities"
 #define FRAGMENT_LIST_LEN_INIT 15
 
 #define INIT_MAX_FASTAS   10
@@ -170,6 +175,9 @@ typedef struct Params {
      * an input file. */
     int           *column_index;
     int           *proc_mode;
+
+/* Whether fragment expansion is on/off */
+    int fragment_intensity_expansion;
 
     int  expand_indx;
     int  modpep_indx;
@@ -847,32 +855,6 @@ int list_trypsin_digestion_candidates (
 
 #define APPEND_TO_STRING_LIST_DELTA 500
 
-int append_to_string_list_t_dup (
-
-        string_list_t *slist,
-        char          *field
-){
-    int retval=0;
-
-    if (slist->len >= slist->maxlen){
-        slist->maxlen += APPEND_TO_STRING_LIST_DELTA;
-        if ((slist->string = realloc(slist->string,
-                    (slist->maxlen)*sizeof(char *)))==NULL){
-            fprintf(stderr,"Failed to expand data in "\
-                    "append_to_string_list_t.\n");
-            retval = ERROR_FAILED;
-        }
-    }
-    if(retval) return(retval);
-
-    slist->string[slist->len] = strdup(field);
-    slist->len++;
-
-    return(retval);
-}
-
-/* ---------- */
-
 int append_to_string_list_t (
 
         string_list_t *slist,
@@ -893,6 +875,32 @@ int append_to_string_list_t (
 
     slist->string[slist->len] = field;
     slist->len++;
+
+    return(retval);
+}
+
+/* ---------- */
+
+int append_to_string_list_t_dup (
+
+        string_list_t *slist,
+        char          *field
+){
+    char *copy;
+    int   retval=0;
+
+    if((copy = strdup(field))==NULL){
+        fprintf(stderr,"Failed making copy in "\
+                "append_to_string_list_t_dup.\n");
+        retval = ERROR_FAILED;
+    }
+    else {
+        if(append_to_string_list_t(slist,copy)){
+            fprintf(stderr,"Failed storing copy in "\
+                    "append_to_string_list_t_dup.\n");
+            retval = ERROR_FAILED;
+        }
+    }
 
     return(retval);
 }
@@ -1804,6 +1812,7 @@ int set_input_terminators(
 }
 
 /* ------ */
+#define DEFAULT_FRAGMENT_INTENSITY_EXPANSION_FLAG 1
 
 int init_params ( 
 
@@ -1854,6 +1863,10 @@ int init_params (
         params->maxlen = DEFAULT_MAX_PEPTIDE_LEN;
         params->max_missed_cleavages = DEFAULT_MAX_MISSED_CLEAVAGES;
 
+        /* Default value whether to expand fragment intensities
+         * or not */
+        params->fragment_intensity_expansion = DEFAULT_FRAGMENT_INTENSITY_EXPANSION_FLAG;
+
         *params_p = params;
         
     }
@@ -1890,18 +1903,51 @@ int print_usage (
     printf("\n");
     printf("Options:\n\n");
 
-    printf(" -E colname     Set fragment intensity column name to colname.\n");
-    printf(" -f fasta_file  Add fasta_file to peptide search space (NOTE need\n");
-    printf("                at least one FASTA file to work.\n");
-    printf(" -h             Print this kind of stuff.\n");
-    printf(" -k <n>         Set digested peptide maximum number of missed cleavages\n");
-    printf(" -l <len>       Set digested peptide minimum length equal to <len>.\n");
-    printf(" -L <len>       Set digested peptide maximum length equal to <len>.\n");
-    printf(" -M colname     Set modified peptide column name to colname.\n");
-    printf("                equal to <n>.\n");
-    printf(" -o <outfile>   Write output to file <outfile> [default=%s].\n",DEFAULT_OUTFILE);
-    printf(" -v             Be verbose. Print unmatched backbone sequences.\n");
-    printf("\n\n\n");
+    printf(" -E <colname>     Set fragment intensity column name to <colname>.\n");
+    printf(" -f <fasta_file>  Add <fasta_file> to peptide search space (NOTE Need\n");
+    printf("                  at least one FASTA file to work.\n");
+    printf(" -h               Print this kind of stuff.\n");
+    printf(" -k <n>           Set digested peptide maximum number of missed cleavages\n");
+    printf("                  equal to <n>.\n");
+    printf(" -l <len>         Set digested peptide minimum length equal to <len>.\n");
+    printf(" -L <len>         Set digested peptide maximum length equal to <len>.\n");
+    printf(" -M <colname>     Set modified peptide column name to <colname>.\n");
+    printf(" -o <outfile>     Write output to file <outfile> [default=%s].\n",DEFAULT_OUTFILE);
+    printf(" -v               Be verbose. Print unmatched backbone sequences.\n");
+    printf(" -x               Turn fragment intensity expansion off.\n");
+    printf("\n");
+    printf("DESCRIPTION\n");
+    printf("\n");
+    printf("Siteloc reads in a tsv format table and expects to find a set of specified column names. If\n");
+    printf("found, these columns are copied to output, otherwise absent. These column namess are File.Name,\n");
+    printf("Run, Protein.Group, Protein.Ids, Genes, Modified.Sequence, Stripped.Sequence, Precursor.Id,\n");
+    printf("Q.Value, Global.Q.Value, Proteotypic, Ms1.Area, Fragment.Quant.Corrected, PTM.Q.Value and \n");
+    printf("PTM.Site.Confidence.\n");
+    printf("  Of the above column names, two are mandatory, and to prevent program termination their names \n");
+    printf("can be changed from the commandline. The first mandatory input column is Fragment.Quant.Corrected,\n");
+    printf("which contains all fragment ion intensities and is simply expanded in the output into one intensity\n");
+    printf("value per row. Output columns Fragment.Rel.Id and Fragment.Intensity contain an arbitrary generated\n");
+    printf("fragment id number (to distinguish fragments belonging to the same modified peptide) and the expanded\n");
+    printf("fragment intensity value.\n");
+    printf("  The other mandatory column is the Modified.Sequence column, which is the main input and\n");
+    printf("are row-wise processed into an unmodified peptide backbone sequence and a list of modifications\n");
+    printf("localized on this peptide. At program initiation, siteloc digests one or more FASTA protein databases\n");
+    printf("into a quick-lookup data structure, and looks up the unmodified peptide, reconstructing all full\n");
+    printf("protein offsets of the input peptide modifications. In the output the columns Peptide.Backbone, \n");
+    printf("Peptide.Offsets, Nr.Mods and Nr.Phospho are appended specifying the peptide sequence that is looked\n");
+    printf("up, the offsets of the modifications, number of modifications and how many of these are phosphorylations,\n");
+    printf("respectively. If the lookup fails, the row will be missing from the output. If the lookup succeeds, the\n");
+    printf("columns Fasta.Files and Proteins.Fasta contain the FASTA file(s) and protein names in which\n");
+    printf("the peptide backbone is found. The columns Protein.Sites and Phospho.Site.Specs encode for each of the\n");
+    printf("Proteins.Fasta entries, the full offsets of all modifications and only phosphorylations, respectively.\n");
+    printf("In these columns, for each protein, parenthesis enclose a comma-separated list\n");
+    printf("of amino-acids full protein offset specifications. Multiple proteins in Proteins.Fasta\n");
+    printf("filed lead to a semi-colon separated list of such offset lists. In Protein.Sites additionally,\n");
+    printf("the type of modification is specified by a small case letter prepended to amino acid offsets. The\n");
+    printf("symbols n, p, m, d, u, g, t, e, q and a denote UniMod:1, UniMod:21, UniMod:35, UniMod:36, UniMod:121,\n");
+    printf("UniMod:34, UniMod:37, UniMod:27, UniMod:28 and UniMod:385 respectively. The symbol x is used for all\n");
+    printf("unrecognized modifications.\n");
+    printf("\n");
     printf("Version %s %s\n",VERSION_STRING,STAMP_DATE);
     printf("\n");
 
@@ -1910,44 +1956,6 @@ int print_usage (
 }
 
 /* ------ */
-/*
-typedef struct Params {
-
-    int    n_fastas;
-    int    max_fastas;
-    char **fasta;
-
-    char  *infile;
-    char  *outfile;
-
-    string_list_t *targets;
-
-    char *expand_name;
-    char *modpep_name;
-
-    char column_separator;
-    char line_terminator;
-    char null_char;
-
-    int verbose_level;
-
-    int minlen;
-    int maxlen;
-    int max_missed_cleavages;
-
-    char         *buffer;
-    unsigned int  buffer_len;
-
-    int           *column_index;
-    int           *proc_mode;
-
-    int  expand_indx;
-    int  modpep_indx;
-
-    int  ncols;
-
-} params_t;
-*/
 
 int string_list_t_lookup (
         
@@ -2107,7 +2115,7 @@ int parse_command_line (
 
     if(retval) return(retval);
 
-    while((c=getopt(argc,argv,"l:L:k:E:M:vo:f:h"))!=-1){
+    while((c=getopt(argc,argv,"xl:L:k:E:M:vo:f:h"))!=-1){
         switch(c){
             case 'h':
                 print_usage(basename(argv[0]));
@@ -2159,6 +2167,9 @@ int parse_command_line (
                 break;
             case 'v':
                 params->verbose_level = VERBOSE_LEVEL1;
+                break;
+            case 'x':
+                params->fragment_intensity_expansion = 0;
                 break;
             default:
                 break;
@@ -2401,14 +2412,26 @@ int get_protein_name_copy (
     int   retval=0;
 
     if((start = strchr(header,'|'))==NULL){
-        fprintf(stderr,"Initial | not found in get_protein_name_copy.\n");
-        retval = ERROR_FAILED;
+        if((copy = strdup(header+1))==NULL){
+            fprintf(stderr,"Failed making copy (1) of raw header "
+                    "in get_protein_name_copy.\n");
+            retval = ERROR_FAILED;
+        }
+        else{
+            *name_p = copy;
+        }
     }
     else {
         start++;
         if ((end = strchr(start,'|'))==NULL){
-            fprintf(stderr,"Second | not found in get_protein_name_copy.\n");
+            if((copy = strdup(header+1))==NULL){
+                fprintf(stderr,"Failed making copy (2) of raw header "
+                        "in get_protein_name_copy.\n");
                 retval = ERROR_FAILED;
+            }
+        else{
+            *name_p = copy;
+        }
         }
         else {
             *end = '\0';
@@ -2899,19 +2922,21 @@ int gen_proteins_found (
 /* ------ */
 
 /*
- * # UniMod:1 acetylation
- * # UniMod:21 phosphorylation
- * # UniMod:35 oxydation
- * # UniMod:36 dimethylation
- * # UniMod:121 ubiquitinilation
- * # UniMod:34 methylation
- * # UniMod:37 tri-methylation
- * # UniMod:27 pyro_glu from e
- * # UniMod:28 pyro_glu from q
- * # UniMod:385 ammonia loss a
+ * # UniMod:1 acetylation        n
+ * # UniMod:21 phosphorylation   p
+ * # UniMod:35 oxydation         m
+ * # UniMod:36 dimethylation     d
+ * # UniMod:121 ubiquitinilation u
+ * # UniMod:34 methylation       g
+ * # UniMod:37 tri-methylation   t
+ * # UniMod:27 pyro_glu from     e
+ * # UniMod:28 pyro_glu from     q
+ * # UniMod:385 ammonia loss     a
+ *
+ * Unknown UniMod is processed as x
  * */
 
-#define UNDEFINED_UNIMOD_RETVAL '0'
+#define UNDEFINED_UNIMOD_RETVAL 'x'
 
 char get_mod_type (
         
@@ -2940,7 +2965,7 @@ char get_mod_type (
         retval = 'u';
     }
     if( strcmp(unimod_descr,"UniMod:34") == 0){
-        retval = 'm';
+        retval = 'g';
     }
     if( strcmp(unimod_descr,"UniMod:37") == 0){
         retval = 't';
@@ -3660,10 +3685,26 @@ int process_input_line (
              * handle columns accordingly. */
             switch(params->proc_mode[i]){
                 case PROC_MODE_FRAG_EXPAND :
-                    if(expand_intensities_field(start,exp_intens)){
+                    if(params->fragment_intensity_expansion){
+                        if(expand_intensities_field(start,exp_intens)){
                             fprintf(stderr,"Failed expanding fragment "\
                                     "intensities in process_input_line.\n");
                             retval = ERROR_FAILED;
+                        }
+                    }
+                    else {
+                        if(clear_string_list_t(exp_intens)){
+                            fprintf(stderr,"Failed clearing intensity list "\
+                                    "in process_input_line\n");
+                            retval = ERROR_FAILED;
+                        }
+                        else {
+                            if(append_to_string_list_t_dup(exp_intens,start)){
+                                fprintf(stderr,"Failed adding full intensity "\
+                                        "field in process_input_line.\n");
+                                retval= ERROR_FAILED;
+                            }
+                        }
                     }
                     break;
                 case PROC_MODE_MODPEP_QUERY :
@@ -3700,9 +3741,10 @@ int process_input_line (
 /* NOTE THat we read,process and write each
  * line in the input, line by line. */
 
-int write_output_line (
+int write_expanded_output_line (
 
         FILE            *out_fd,
+        int              expand_flag,
         ptm_locations_t *ptm_locs,
         string_list_t   *exp_intens,
         static_fields_t *stat_fields
@@ -3712,10 +3754,60 @@ int write_output_line (
 
     /* The outter loop generates a dedicated line for each
      * fragment. */
-    for(j=0;j<(exp_intens->len);j++){
-        /* Here we need to write out all desired output
-         * lines. 
-         * First the static stuff */
+    if(expand_flag){
+        for(j=0;j<(exp_intens->len);j++){
+            /* Here we need to write out all desired output
+             * lines. 
+             * First the static stuff */
+            for(i=0;i<(stat_fields->len);i++){
+                if(i>0){
+                    fprintf(out_fd,"\t%s",stat_fields->string[i]);
+                }
+                else {
+                    fprintf(out_fd,"%s",stat_fields->string[i]);
+                }
+            }
+            /* And here the dynamic stuff. */
+    
+            if( ptm_locs->nmods > 0){
+                fprintf(out_fd,"\t%s",ptm_locs->sitespec);
+            } 
+            else {
+                fprintf(out_fd,"\t");
+            }
+    
+            fprintf(out_fd,"\t%s",ptm_locs->fastas);
+            fprintf(out_fd,"\t%s",ptm_locs->proteins);
+            fprintf(out_fd,"\t%s",ptm_locs->backbone);
+    
+            if( ptm_locs->nmods > 0){
+                fprintf(out_fd,"\t%s",ptm_locs->modoffs);
+            }
+            else {
+                fprintf(out_fd,"\t");
+            }
+    
+            fprintf(out_fd,"\t%d",ptm_locs->nmods);
+    
+            fprintf(out_fd,"\t%d",ptm_locs->nphospho);
+            if(ptm_locs->nphospho > 0){
+                fprintf(out_fd,"\t%s",ptm_locs->phosphospec);
+            }
+            else {
+                fprintf(out_fd,"\t");
+            }
+    
+            /* Note for fragment intensities we need
+             * to introduce an arbitraty fragment id. */
+            fprintf(out_fd,"\t%d",j+1);
+            fprintf(out_fd,"\t%s",exp_intens->string[j]);
+            /* The end. */
+            fprintf(out_fd,"\n");
+        }
+    }
+    else {
+        /* This is the case of no fragment expansion */
+        /* Static crap */
         for(i=0;i<(stat_fields->len);i++){
             if(i>0){
                 fprintf(out_fd,"\t%s",stat_fields->string[i]);
@@ -3754,10 +3846,9 @@ int write_output_line (
             fprintf(out_fd,"\t");
         }
 
-        /* Note for fragment intensities we need
-         * to introduce an arbitraty fragment id. */
-        fprintf(out_fd,"\t%d",j+1);
-        fprintf(out_fd,"\t%s",exp_intens->string[j]);
+        /* In the non-expansion case the first entry
+         * is the original field value */
+        fprintf(out_fd,"\t%s",exp_intens->string[0]);
         /* The end. */
         fprintf(out_fd,"\n");
     }
@@ -3834,7 +3925,6 @@ int process_input_bulk (
         retval = ERROR_FAILED;
     }
     /* NOTE we hardcode that there are two variable fields */
-
     if(retval) return retval;
 
     while(!fgets_full_line(in_fd,&(params->buffer),&(params->buffer_len))){
@@ -3849,7 +3939,9 @@ int process_input_bulk (
         }
         else {
             if(ptm_locs->found_flag == 1){
-                if(write_output_line(out_fd,ptm_locs,exp_intens,stat_fields)){
+                if(write_expanded_output_line(out_fd,
+                            params->fragment_intensity_expansion,
+                            ptm_locs,exp_intens,stat_fields)){
                     fprintf(stderr,"Failed writing output in "\
                             "process_input_bulk.\n");
                     retval = ERROR_FAILED;
@@ -4195,7 +4287,12 @@ int write_header (
     }
     /* This is the header corresponding to
      * the new additional output columns. */
-    fprintf(out_fd,EXTRA_OUTPUT_COLNAMES);
+    if (params->fragment_intensity_expansion){
+        fprintf(out_fd,EXTRA_OUTPUT_COLNAMES);
+    }
+    else {
+        fprintf(out_fd,EXTRA_OUTPUT_COLNAMES_NOEXP);
+    }
 
     fprintf(out_fd,"\n");
 
