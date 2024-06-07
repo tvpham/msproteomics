@@ -7,13 +7,14 @@ import sys
 import os
 import subprocess
 
-__version__ = "0.1.2"
+__version__ = "1.0.0"
 
 #print('Compile siteloc')
-#subprocess.Popen(["make"], stdout=subprocess.PIPE, cwd="./msproteomics/tools")
 rootdir = os.path.abspath(os.path.dirname(__file__))
 tool_path = os.path.join(rootdir, 'msproteomics', 'tools')
-subprocess.Popen(["make"], stdout = subprocess.PIPE, cwd = tool_path)
+print(tool_path)
+p = subprocess.Popen(["make"], stdout = subprocess.PIPE, cwd = tool_path)
+p.wait()
 #print('Done.')
 
 with open('README.md') as f:
@@ -56,7 +57,7 @@ setup(
     long_description = long_description,
     long_description_content_type = 'text/markdown',
     classifiers = [
-        'Development Status :: 1 - Planning',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
 		'License :: OSI Approved :: Apache Software License',
     ],

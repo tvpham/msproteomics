@@ -22,7 +22,7 @@ import msproteomics
 
 def main():
     
-    parser = argparse.ArgumentParser(description='Create phosphosite and phosphopeptide report.', usage = 'phosphoreport inputfile [...]')
+    parser = argparse.ArgumentParser(description='Create phosphosite and phosphopeptide report.', usage = 'sitereport inputfile [...]')
     
     parser.add_argument('file')
     parser.add_argument('-tool', '--tool', default = 'generic', choices=['generic', 'diann', 'sn'], type = str, help = 'Processing tool, diann for DIA-NN and sn for Spectronaut')
@@ -52,7 +52,7 @@ def main():
     parser.add_argument('-peptide_filter_string_not_equal', '--peptide_filter_string_not_equal', default = None, nargs=2, action='append', type = str, help = 'Peptide filtering string not equal')
 
     parser.add_argument('-normalize', '--normalize', default = 'none', type = str, choices=['none', 'median'], help = 'Normalization method')
-    parser.add_argument('-quant_method', '--quant_method', default = 'maxLFQ', type = str, help = 'Quantification method')
+    parser.add_argument('-quant_method', '--quant_method', default = 'maxlfq', type = str, choices=['sum', 'max', 'maxlfq'], help = 'Quantification method')
 
     parser.add_argument('-check', '--check', default = False, action = 'store_true')
 
@@ -133,7 +133,9 @@ def main():
     print('  sample_id_col     = ', args.sample_id_col)
     print('  intensity_col     = ', args.intensity_col)
     print('  secondary_id_cols = ', args.secondary_id_cols)        
-    print('  annotation_cols   = ', args.annotation_cols)        
+    print('  annotation_cols   = ', args.annotation_cols)
+    print('  normalize         = ', args.normalize)    
+    print('  quant_method      = ', args.quant_method)                
     
     print('\nPhosphosite setting:')
     print('  protein_id_col               = ', args.protein_id_col) 

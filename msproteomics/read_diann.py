@@ -17,7 +17,6 @@ import os
 import sys
 import sysconfig
 import subprocess
-import site
 
 def main():
 

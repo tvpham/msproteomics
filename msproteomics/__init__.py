@@ -30,6 +30,7 @@ from scipy.linalg import lstsq
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.cm as cm
+import warnings
 
 import re
 
@@ -270,7 +271,7 @@ def maxLFQ(X):
             return dict({"estimate": w, "annotation": ";".join(['NA' if (x == 0) else str(x) for x in g])})
 
           
-def create_protein_table(protein_list, method = "maxLFQ"):
+def create_protein_table(protein_list, method = "maxlfq"):
     if not isinstance(protein_list, dict):
         raise TypeError("Only dict are allowed")
 
@@ -291,7 +292,7 @@ def create_protein_table(protein_list, method = "maxLFQ"):
             threes_display += step
             filled += 1
     
-        if method == "maxLFQ":
+        if method == "maxlfq":
             out = maxLFQ(list(protein_list.values())[i])
     
         else:
@@ -459,7 +460,7 @@ def create_report_wideformat(report_lf,
                              primary_id = 'site',
                              secondary_id_cols = ["EG.PrecursorId", "EG.Library", "FG.Charge", "F.FrgIon", "F.Charge", "F.FrgLossType"],
                              annotation_cols = ["PG.Organisms"],
-                             method = "maxLFQ",
+                             method = "maxlfq",
                              check = False):
     
     print("Concatenating secondary ids...")
@@ -473,7 +474,7 @@ def create_report_wideformat(report_lf,
                        'id': second_id})
     aa.dropna(axis=0)    
     
-    if method == 'maxLFQ':        
+    if method == 'maxlfq':        
 
         result = fast_MaxLFQ(aa)    
 
@@ -482,7 +483,7 @@ def create_report_wideformat(report_lf,
             print("checking pure Python implementation...")
 
             p_list = create_protein_list(aa)        
-            res = create_protein_table(p_list, method = 'maxLFQ')        
+            res = create_protein_table(p_list, method = 'maxlfq')        
             
             # check difference here
             diff = np.double(result['estimate']) - np.double(res['estimate'])
@@ -493,8 +494,6 @@ def create_report_wideformat(report_lf,
             print('Same col names  =', np.all(result['estimate'].columns == res['estimate'].columns))
             print('Same annotation =', np.all(result['annotation'] == res['annotation']))
 
-
-
     elif method == 'sum':        
         p_list = create_protein_list(aa)
         result = {'estimate': pd.DataFrame(np.nan, columns=list(p_list.values())[0].columns, index = list(p_list))}
@@ -502,6 +501,16 @@ def create_report_wideformat(report_lf,
             tmp = np.exp2(p_list[i].to_numpy().astype(float))
             tmp2 = np.nansum(tmp, axis = 0)
             result['estimate'].loc[i] = np.log2(tmp2, out = np.full_like(tmp2, np.nan), where = tmp2 > 0)
+
+    elif method == 'max':
+        p_list = create_protein_list(aa)
+        result = {'estimate': pd.DataFrame(np.nan, columns=list(p_list.values())[0].columns, index = list(p_list))}
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            for i in p_list:
+                tmp = p_list[i].to_numpy().astype(float)            
+                result['estimate'].loc[i] = np.nanmax(tmp, axis = 0)
 
     else:
         raise Exception('Unknown method.')
@@ -511,7 +520,7 @@ def create_report_wideformat(report_lf,
 
     tmp = report_lf[[primary_id] + annotation_cols].iloc[ind]        
     tmp = tmp.set_axis(result['estimate'].index, axis='index')
-    if method == 'maxLFQ':                
+    if method == 'maxlfq':                
         ret = tmp.join(result['annotation']).join(result['estimate'])
     else:
         ret = tmp.join(result['estimate'])

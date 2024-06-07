@@ -24,8 +24,8 @@ pip install msproteomics
 On some system, you might need to install pybind11 first, for example
 
 ```
-conda create -n p37 python=3.7
-conda activate p37
+conda create -n msproteomics
+conda activate msproteomics
 pip install pybind11
 pip install msproteomics
 ```
@@ -41,7 +41,7 @@ sitereport 20231106_133459_optimal4_Report.tsv -tool sn
 For DIA-NN export
 
 ```
-read_diann -o report_msproteomics.tsv -f uniprot-reviewed_yes_AND_organism__Homo_sapiens__Human___9606___--.fasta report.tsv
+read_diann -o report_msproteomics.tsv -E Fragment.Quant.Raw -f uniprot-reviewed_yes_AND_organism__Homo_sapiens__Human___9606___--.fasta report.tsv
 
 sitereport report_msproteomics.tsv
 ```
