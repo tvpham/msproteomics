@@ -13,7 +13,7 @@ Bioinformatics 2020 Apr 15;36(8):2611-2613.
 
 R software version: 1.9.11
 
-Adapted for Python, 2023
+Adapted for Python, 2025
 
 #########################################################################
 */
@@ -502,8 +502,38 @@ py::dict iq_MaxLFQ(py::array_t<int> &vp,
     return (vec);
 }
 
+extern "C"
+{
+    #include "main.c"
+}
+
+void siteloc(py::list inlist) {
+
+    int argc = (int)inlist.size();
+
+    void *ptr = malloc(argc * sizeof(char*));
+    
+    if(ptr == NULL) {
+        py::print("Cannot allocate memory.\n");
+        return;
+    }
+
+    char** argv = (char**)ptr;
+
+    for (int i = 0; i < argc; ++i) {
+        argv[i] = (char*)PyUnicode_AsUTF8(inlist[i].ptr());
+    }
+
+    int ret = main(argc, argv);
+
+    free(ptr);
+}
+
+
+
 PYBIND11_MODULE(_msproteomics, m) {        
     m.def("iq_maxLFQ", &iq_MaxLFQ, "MaxLFQ in C++");
+    m.def("siteloc", &siteloc, "siteloc in C++");
 }
 
 /** PYTHON END **/

@@ -4,6 +4,12 @@
 
 This repository contains a Python package to report phosphosites and phosphopeptides from a DIA-MS phosphoproteomics experiment.
 
+**Citation**
+
+Pham TV, Henneman AA, Truong NX, Jimenez CR. msproteomics sitereport: reporting DIA-MS phosphoproteomics experiments at site level with ease, _Bioinformatics_ 2024 Jul 1;40(7):btae432.
+[https://doi.org/10.1093/bioinformatics/btae432](https://doi.org/10.1093/bioinformatics/btae432)
+
+
 ## Data
 
 * Skowronek et al. PXD034128 dataset
@@ -28,6 +34,16 @@ conda create -n msproteomics
 conda activate msproteomics
 pip install pybind11
 pip install msproteomics
+```
+
+On a Windows Cygwin system with python39, g++ (GCC) 12.4.0, and matplotlib 3.5.1 pre-installed, the following works
+
+```
+python -m pip install setuptools
+python -m pip install pybind11
+python -m pip install numpy==1.22.4 
+python -m pip install pandas==2.2.3
+python -m pip install msproteomics
 ```
 
 ## Example usages

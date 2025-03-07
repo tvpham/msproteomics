@@ -8,8 +8,8 @@
  * peptides as tryptic peptides.
  *
  * Author: Alex Henneman
- * Date: Wed 12 Jul 2023 07:27:34 PM CEST
- * Modified: Wed Nov  8 14:05:54 CET 2023
+ * Date    : Wed 12 Jul 2023 07:27:34 PM CEST
+ * Modified: Thu Oct 31 10:42:10 AM CET 2024
  *
  * Todos
  * =====
@@ -34,9 +34,9 @@
 #include <math.h>
 
 /* --- */
-#define VERSION_STRING "0.3.1"
+#define VERSION_STRING "0.4.0"
 /* This one is printed in the help blurp */
-#define STAMP_DATE "Fri Jun  7 02:33:18 PM CEST 2024"
+#define STAMP_DATE "Fri Mar 7 09:53:18 PM CEST 2025"
 
 #define ERROR_FAILED -1
 
@@ -58,7 +58,7 @@
 #define INIT_DELTA_FASTAS 10
 #define DEFAULT_OUTFILE "output.tsv"
 #define DIGEST_PEPTIDE_LIST_LEN_INIT 100
-#define SEQUENCE_ALPHABET "ACDEFGHIKLMNPQRSTVWYUX"
+#define SEQUENCE_ALPHABET "ACDEFGHIJKLMNPQRSTVWYUX"
 
 #define DEFAULT_PEPTIDE_LIST_INIT_LEN 100
 #define DEFAULT_PEPTIDE_LIST_DELTA_LEN 50
@@ -587,13 +587,19 @@ int parse_fasta_file (
     line_buffer_len = 0;
     line_buffer     = NULL;
 
+    int line_error=0;
+
     while (!fgets_full_line(protein_fd,&line_buffer,&line_buffer_len)){
+        if(line_error){
+            fprintf(stderr,"Error: Detected intermediate line without terminating newline.\n");
+            retval = ERROR_FAILED;
+            break;
+        }
         /* Here we check whether we get the whole line or not.
          * If we don't we issue a warning and set retval.*/
         last_char_index = strlen(line_buffer)-1;
         if( line_buffer[last_char_index] != '\n' ){
-            fprintf(stderr,"Error: Truncating a too long line in parse_fasta_file.\n");
-            retval = ERROR_FAILED;
+            line_error = 1;
         }
         else {
             /* And we take off the newline. */
@@ -918,7 +924,7 @@ int generate_digested_subsequences (
 
 ){
     unsigned int      end_loc,pep_len,last,i,j;
-    char             *new,tmp;
+    char             *new1,tmp;
     int               retval=0;
 
     last      = locs->len - 1;
@@ -937,7 +943,7 @@ int generate_digested_subsequences (
             tmp               = sequence[end_loc];
             sequence[end_loc] = '\0';
 
-            if ((new = strdup((char *)(sequence+locs->element[i])))==NULL){
+            if ((new1 = strdup((char *)(sequence+locs->element[i])))==NULL){
                 fprintf(stderr,"Failed copying peptide for list in "\
                         "generate_digested_subsequences.\n");
                 retval = ERROR_FAILED;
@@ -945,7 +951,7 @@ int generate_digested_subsequences (
 
             sequence[end_loc] = tmp;
 
-            if (append_to_string_list_t(peplist,new)){
+            if (append_to_string_list_t(peplist,new1)){
                 fprintf(stderr,"Failed storing peptide in list in "\
                         "generate_digested_subsequences.\n");
                 retval = ERROR_FAILED;
@@ -1528,7 +1534,7 @@ int generate_digested_subsequences_w_offsets (
 ){
     unsigned int      end_loc,pep_len,last,i,j,
                       offset;
-    char             *new,tmp;
+    char             *new1,tmp;
     int               retval=0;
 
     last      = locs->len - 1;
@@ -1547,7 +1553,7 @@ int generate_digested_subsequences_w_offsets (
             tmp               = sequence[end_loc];
             sequence[end_loc] = '\0';
 
-            if ((new = strdup((char *)(sequence+locs->element[i])))==NULL){
+            if ((new1 = strdup((char *)(sequence+locs->element[i])))==NULL){
                 fprintf(stderr,"Failed copying peptide for list in "\
                         "generate_digested_subsequences.\n");
                 retval = ERROR_FAILED;
@@ -1555,7 +1561,7 @@ int generate_digested_subsequences_w_offsets (
 
             sequence[end_loc] = tmp;
 
-            if (append_to_peptide_list_t(peplist,new,offset)){
+            if (append_to_peptide_list_t(peplist,new1,offset)){
                 fprintf(stderr,"Failed storing peptide in list in "\
                         "generate_digested_subsequences.\n");
                 retval = ERROR_FAILED;
@@ -1893,47 +1899,47 @@ int print_usage (
     printf("Modified.Sequence column to detect modifications (currently only UniMod\n");
     printf("notation supported), lookup peptide offsets in supplied FASTA file (need\n");
     printf("to be specified using the -f flag.\n");
-    printf(" Guided by presence of the tryptic digest sequence in the protein databases,\n");
+    printf("\nGuided by presence of the tryptic digest sequence in the protein databases,\n");
     printf("this program will generate info like offset to modification, in which proteins\n");
     printf("the peptide can be found and several other fields.\n");
-    printf(" Furthermore, the Fragment.Quant.Corrected column will be expanded into single\n");
+    printf("\nFurthermore, the Fragment.Quant.Corrected column will be expanded into single\n");
     printf("fragment intensities on each row, and adding a precursor unique id field called.\n");
     printf("Fragment.Rel.Id, which has the same meaning for each precursor according to DiaNN\n");
     printf("documentation.\n");
     printf("\n");
     printf("Options:\n\n");
-
-    printf(" -E <colname>     Set fragment intensity column name to <colname>.\n");
+    
+    printf(" -E <colname>     Set fragment intensity column name to <colname> [default = %s].\n", COLNAME_DEFAULT_FRAGMENT_QUANT_CORRECTED);
     printf(" -f <fasta_file>  Add <fasta_file> to peptide search space (NOTE Need\n");
-    printf("                  at least one FASTA file to work.\n");
+    printf("                  at least one FASTA file to work).\n");
     printf(" -h               Print this kind of stuff.\n");
     printf(" -k <n>           Set digested peptide maximum number of missed cleavages\n");
-    printf("                  equal to <n>.\n");
-    printf(" -l <len>         Set digested peptide minimum length equal to <len>.\n");
-    printf(" -L <len>         Set digested peptide maximum length equal to <len>.\n");
-    printf(" -M <colname>     Set modified peptide column name to <colname>.\n");
-    printf(" -o <outfile>     Write output to file <outfile> [default=%s].\n",DEFAULT_OUTFILE);
+    printf("                  equal to <n> [default = %d].\n", DEFAULT_MAX_MISSED_CLEAVAGES);
+    printf(" -l <len>         Set digested peptide minimum length equal to <len> [default = %d].\n", DEFAULT_MIN_PEPTIDE_LEN);
+    printf(" -L <len>         Set digested peptide maximum length equal to <len> [default = %d].\n", DEFAULT_MAX_PEPTIDE_LEN);
+    printf(" -M <colname>     Set modified peptide column name to <colname> [default = %s].\n", COLNAME_DEFAULT_MODIFIED_SEQUENCE);
+    printf(" -o <outfile>     Write output to file <outfile> [default = %s].\n", DEFAULT_OUTFILE);
     printf(" -v               Be verbose. Print unmatched backbone sequences.\n");
     printf(" -x               Turn fragment intensity expansion off.\n");
     printf("\n");
     printf("DESCRIPTION\n");
     printf("\n");
-    printf("Siteloc reads in a tsv format table and expects to find a set of specified column names. If\n");
-    printf("found, these columns are copied to output, otherwise absent. These column namess are File.Name,\n");
+    printf("The program reads in a tsv format table and expects to find a set of specified column names. If\n");
+    printf("found, these columns are copied to output, otherwise absent. These column names are File.Name,\n");
     printf("Run, Protein.Group, Protein.Ids, Genes, Modified.Sequence, Stripped.Sequence, Precursor.Id,\n");
-    printf("Q.Value, Global.Q.Value, Proteotypic, Ms1.Area, Fragment.Quant.Corrected, PTM.Q.Value and \n");
+    printf("Q.Value, Global.Q.Value, Proteotypic, Ms1.Area, Fragment.Quant.Corrected, PTM.Q.Value and\n");
     printf("PTM.Site.Confidence.\n");
-    printf("  Of the above column names, two are mandatory, and to prevent program termination their names \n");
-    printf("can be changed from the commandline. The first mandatory input column is Fragment.Quant.Corrected,\n");
+    printf("\nOf the above column names, two are mandatory, and to prevent program termination their names\n");
+    printf("can be changed from the command line. The first mandatory input column is Fragment.Quant.Corrected,\n");
     printf("which contains all fragment ion intensities and is simply expanded in the output into one intensity\n");
     printf("value per row. Output columns Fragment.Rel.Id and Fragment.Intensity contain an arbitrary generated\n");
     printf("fragment id number (to distinguish fragments belonging to the same modified peptide) and the expanded\n");
     printf("fragment intensity value.\n");
-    printf("  The other mandatory column is the Modified.Sequence column, which is the main input and\n");
+    printf("\nThe other mandatory column is the Modified.Sequence column, which is the main input and\n");
     printf("are row-wise processed into an unmodified peptide backbone sequence and a list of modifications\n");
-    printf("localized on this peptide. At program initiation, siteloc digests one or more FASTA protein databases\n");
+    printf("localized on this peptide. At initiation, the program digests one or more FASTA protein databases\n");
     printf("into a quick-lookup data structure, and looks up the unmodified peptide, reconstructing all full\n");
-    printf("protein offsets of the input peptide modifications. In the output the columns Peptide.Backbone, \n");
+    printf("protein offsets of the input peptide modifications. In the output the columns Peptide.Backbone,\n");
     printf("Peptide.Offsets, Nr.Mods and Nr.Phospho are appended specifying the peptide sequence that is looked\n");
     printf("up, the offsets of the modifications, number of modifications and how many of these are phosphorylations,\n");
     printf("respectively. If the lookup fails, the row will be missing from the output. If the lookup succeeds, the\n");
@@ -1944,8 +1950,8 @@ int print_usage (
     printf("of amino-acids full protein offset specifications. Multiple proteins in Proteins.Fasta\n");
     printf("filed lead to a semi-colon separated list of such offset lists. In Protein.Sites additionally,\n");
     printf("the type of modification is specified by a small case letter prepended to amino acid offsets. The\n");
-    printf("symbols n, p, m, d, u, g, t, e, q and a denote UniMod:1, UniMod:21, UniMod:35, UniMod:36, UniMod:121,\n");
-    printf("UniMod:34, UniMod:37, UniMod:27, UniMod:28 and UniMod:385 respectively. The symbol x is used for all\n");
+    printf("symbols n, p, m, d, u, g, t, e, q, a and c denote UniMod:1, UniMod:21, UniMod:35, UniMod:36, UniMod:121,\n");
+    printf("UniMod:34, UniMod:37, UniMod:27, UniMod:28, UniMod:385, and uUnimod:4 respectively. The symbol x is used for all\n");
     printf("unrecognized modifications.\n");
     printf("\n");
     printf("Version %s %s\n",VERSION_STRING,STAMP_DATE);
@@ -1994,7 +2000,7 @@ int string_list_t_lookup (
 int string_list_t_replace ( 
         
         char          *old,
-        char          *new,
+        char          *new1,
         string_list_t *targets
         
 ){
@@ -2009,7 +2015,7 @@ int string_list_t_replace (
     else {
         if (found == 1){
             free(targets->string[indx]);
-            if((buf=strdup(new))==NULL){
+            if((buf=strdup(new1))==NULL){
                 fprintf(stderr,"Failed allocating new entry in "\
                         "string_list_t_replace.\n");
                 retval = ERROR_FAILED;
@@ -2519,8 +2525,8 @@ int store_fasta_into_peptide_tree (
                 message->offset   = peplist->offset[j];
 
                 if(char_tree_enter(peplist->peptide[j],peptree,insert_digest_peptide,payload)){
-                    fprintf(stderr,"Failed processing a peptide in store_fasta_into_peptide_tree.\n");
-                    retval = ERROR_FAILED;
+                    fprintf(stderr,"Skipping peptide %s.\n",peplist->peptide[j]);
+                    /* Let's not be so panicky about this...  retval = ERROR_FAILED; */
                     break;
                 }
 
@@ -2922,16 +2928,23 @@ int gen_proteins_found (
 /* ------ */
 
 /*
- * # UniMod:1 acetylation        n
- * # UniMod:21 phosphorylation   p
- * # UniMod:35 oxydation         m
- * # UniMod:36 dimethylation     d
- * # UniMod:121 ubiquitinilation u
- * # UniMod:34 methylation       g
- * # UniMod:37 tri-methylation   t
- * # UniMod:27 pyro_glu from     e
- * # UniMod:28 pyro_glu from     q
- * # UniMod:385 ammonia loss     a
+ * TODO
+ * ====
+ *
+ * Perhaps it is a good idea to show 
+ * this in the blurp
+ *
+ * # UniMod:1   acetylation          n
+ * # UniMod:21  phosphorylation      p
+ * # UniMod:4   carbamidomethylation c                  c
+ * # UniMod:35  oxydation            m
+ * # UniMod:36  dimethylation        d
+ * # UniMod:121 ubiquitinilation     u
+ * # UniMod:34  methylation          g
+ * # UniMod:37  tri-methylation      t
+ * # UniMod:27  pyro_glu from        e
+ * # UniMod:28  pyro_glu from        q
+ * # UniMod:385 ammonia loss         a
  *
  * Unknown UniMod is processed as x
  * */

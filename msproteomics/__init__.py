@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023 Thang V Pham
+# Copyright 2025 Thang V Pham
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,12 +26,10 @@ __author__ = 'Thang V Pham'
 import numpy as np
 import pandas as pd
 from pandas.core.dtypes.common import is_numeric_dtype
-from scipy.linalg import lstsq
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.cm as cm
 import warnings
-
 import re
 
 
@@ -380,7 +378,6 @@ def create_site_key(protein_ids, ptm_locations):
     n = len(protein_ids)
     
     all_sites = [''] * n   
-    secondary_keys = [''] * n    
     first_sites = [''] * n
     
     for i in range(n):
@@ -394,7 +391,7 @@ def create_site_key(protein_ids, ptm_locations):
                 p = pp[j]
                 s = ss[j]
                 
-                s2 = re.findall( '\(.*?\)', s) 
+                s2 = re.findall(r'\(.*?\)', s) 
                 
                 b = [''] * len(s2) 
                 
@@ -432,6 +429,7 @@ def create_site_report_longformat(tab, keys):
         
     tab2 = tab.reset_index(drop = True)
     return(tab2.iloc[r].assign(site = ids))
+
 
 def fast_MaxLFQ(norm_data):
     p_names = norm_data['protein_list'].unique()
@@ -558,7 +556,7 @@ def normalize(report_lf, sample_id_col, intensity_col):
 
 
 def create_peptide_key(modified_sequence, 
-                       regex_str = '\[[^\\[]+\]',
+                       regex_str = r'\[[^\\[]+\]',
                        target_modification = '[Phospho (STY)]',
                        modifications = None):
     import re

@@ -1,21 +1,10 @@
-#pip install pybind11
-#python setup.py bdist_wheel
-
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
 import sys
 import os
-import subprocess
 
-__version__ = "1.0.1"
 
-#print('Compile siteloc')
-rootdir = os.path.abspath(os.path.dirname(__file__))
-tool_path = os.path.join(rootdir, 'msproteomics', 'tools')
-print(tool_path)
-p = subprocess.Popen(["make"], stdout = subprocess.PIPE, cwd = tool_path)
-p.wait()
-#print('Done.')
+__version__ = "1.0.2"
 
 extra_compile_args = None
 extra_link_args = None
@@ -25,7 +14,7 @@ if sys.platform.startswith('win'):
     extra_compile_args = ['-openmp']
 # Use OpenMP if directed or not on a Mac
 elif os.environ.get('USEOPENMP') or not sys.platform.startswith('darwin'):
-    extra_compile_args = ['-fopenmp']
+    extra_compile_args = ['-fopenmp', '-fpermissive', '-Wno-ignored-attributes', '-std=gnu++11']
     extra_link_args = [
         '-lgomp'
     ]
@@ -53,16 +42,15 @@ setup(
     packages = ['msproteomics'],
     long_description = """# msproteomics sitereport: reporting DIA-MS phosphoproteomics experiments at site level with ease\n""",
     long_description_content_type = 'text/markdown',
-    classifiers = [
-        'Development Status :: 4 - Beta',
+    classifiers = [        
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research',
 		'License :: OSI Approved :: Apache Software License',
     ],
     install_requires = [    
-    'numpy',
-    'pandas',
-    'scipy',
-    'matplotlib'
+        'numpy',
+        'pandas',
+        'matplotlib'
     ], 
     entry_points = {
         'console_scripts': ['sitereport=msproteomics.sitereport:main',
@@ -70,7 +58,5 @@ setup(
     },
     ext_modules = ext_modules,
     cmdclass={"build_ext": build_ext},
-    zip_safe=False,
-    include_package_data=True,
-    package_data={"": ["siteloc*"]}
+    zip_safe=False
 )

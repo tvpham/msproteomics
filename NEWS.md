@@ -1,3 +1,8 @@
+## Version 1.0.2
+
+- siteloc is integrated with the Python code.
+- siteloc is more resilient when the input fasta file is without a proper end-of-file.
+
 ## Version 1.0.1
 
 - add 'max' method for quantification

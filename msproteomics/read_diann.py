@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023 Thang V Pham
+# Copyright 2025 Thang V Pham
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
-import sysconfig
-import subprocess
 
 def main():
 
-    cmd = os.path.join(sysconfig.get_path('platlib'), 'msproteomics', 'siteloc')
-
-    print('Activate siteloc (use -h for help) ...')
-
-    subprocess.run([cmd] + sys.argv[1:])
+    import _msproteomics
+        
+    _msproteomics.siteloc(sys.argv)
