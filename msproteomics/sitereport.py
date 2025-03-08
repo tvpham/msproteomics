@@ -82,8 +82,13 @@ def main():
 
         if args.site_filter_double_less is None:
             args.site_filter_double_less = [['Global.Q.Value', '0.01']]
+        elif args.site_filter_double_less == [['none', 'none']]:
+            args.site_filter_double_less = None
+
         if args.site_filter_double_greater is None:
             args.site_filter_double_greater = [['PTM.Site.Confidence', '0.01']]
+        elif args.site_filter_double_greater == [['none', 'none']]:
+            args.site_filter_double_greater = None
 
         # peptide paramters
         if args.modified_sequence_col is None:
@@ -95,6 +100,8 @@ def main():
 
         if args.peptide_filter_double_less is None:
             args.peptide_filter_double_less = [['Global.Q.Value', '0.01']]
+        elif args.peptide_filter_double_less == [['none', 'none']]:
+            args.peptide_filter_double_less = None
     
     elif args.tool == 'sn':
 
@@ -115,10 +122,13 @@ def main():
         
         if args.site_filter_double_greater is None:
             args.site_filter_double_greater = [['EG.PTMAssayProbability', '0.75']]
+        elif args.site_filter_double_greater == [['none', 'none']]:
+            args.site_filter_double_greater = None
 
         # peptide paramters
         if args.modified_sequence_col is None:
             args.modified_sequence_col = 'EG.ModifiedSequence'
+            
         if args.regex_str is None:
             args.regex_str = '\[[^\\[]+\]'
         if args.target_modification is None:

@@ -1,3 +1,7 @@
+## Version 1.0.3
+
+- add option to remove default filters
+
 ## Version 1.0.2
 
 - siteloc is integrated with the Python code.
