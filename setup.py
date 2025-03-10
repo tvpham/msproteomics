@@ -3,8 +3,7 @@ from setuptools import setup
 import sys
 import os
 
-
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 
 extra_compile_args = None
 extra_link_args = None
@@ -30,7 +29,6 @@ ext_modules = [
     ),
 ]
 
-
 setup(
     name = 'msproteomics',
     version = __version__,    
@@ -54,7 +52,8 @@ setup(
     ], 
     entry_points = {
         'console_scripts': ['sitereport=msproteomics.sitereport:main',
-                            'read_diann=msproteomics.read_diann:main'],
+                            'read_diann=msproteomics.read_diann:main',
+                            'diann_parquet_to_tsv=msproteomics.diann_parquet_to_tsv:main'],
     },
     ext_modules = ext_modules,
     cmdclass={"build_ext": build_ext},
