@@ -1,6 +1,6 @@
 # msproteomics sitereport: reporting DIA-MS phosphoproteomics experiments at site level with ease
 
-![sitereport](images/sitereport.png)
+![sitereport](images/sitereport.svg)
 
 This repository contains a Python package to report phosphosites and phosphopeptides from a DIA-MS phosphoproteomics experiment.
 
@@ -48,16 +48,34 @@ python -m pip install msproteomics
 
 ## Example usages
 
-For Spectronaut export
+For Spectronaut export (using [this Spectronaut export scheme](https://zenodo.org/records/11494771/files/ptm.rs?download=1))
 
 ```
 sitereport 20231106_133459_optimal4_Report.tsv -tool sn
 ```
 
-For DIA-NN export
+For DIA-NN
 
 ```
 read_diann -o report_msproteomics.tsv -E Fragment.Quant.Raw -f uniprot-reviewed_yes_AND_organism__Homo_sapiens__Human___9606___--.fasta report.tsv
 
 sitereport report_msproteomics.tsv
 ```
+
+Note that for DIA-NN >= 2.0, the `--export-quant` option must be switched on, and the first step is to create a tab-delimited file with a new intensity column `Intensities`. A Python package `pyarrow` is required for this step
+
+```
+python -m pip install pyarrow
+```
+
+The following commands first create the the required tab-delimited file, then process the resulting file as before. Note that the new column `Intensities` is used instead of `Fragment.Quant.Raw`.
+
+```
+diann_parquet_to_tsv -i report.parquet -o report.tsv
+
+read_diann -o report_msproteomics.tsv -E Intensities -f uniprot-reviewed_yes_AND_organism__Homo_sapiens__Human___9606___.fasta report.tsv
+
+sitereport report_msproteomics.tsv
+```
+
+Finally, obtaining a phosphosite report using a different filtering of the result is possible as described in this [blogpost](https://digitalbiologylab.github.io/posts/250310-phospho-dia/).

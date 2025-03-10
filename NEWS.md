@@ -1,3 +1,7 @@
+## Version 1.1.0
+
+- add parquet to tsv
+
 ## Version 1.0.3
 
 - add option to remove default filters
