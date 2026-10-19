@@ -13,7 +13,7 @@ if sys.platform.startswith('win'):
     extra_compile_args = ['-openmp']
 # Use OpenMP if directed or not on a Mac
 elif os.environ.get('USEOPENMP') or not sys.platform.startswith('darwin'):
-    extra_compile_args = ['-fopenmp', '-fpermissive', '-Wno-ignored-attributes', '-std=gnu++11']
+    extra_compile_args = ['-fopenmp', '-Wno-ignored-attributes', '-std=gnu++11']
     extra_link_args = [
         '-lgomp'
     ]
@@ -22,7 +22,7 @@ ext_modules = [
     Pybind11Extension(
         "_msproteomics",
         ["src/iq_pybind11.cpp"],
-        define_macros=[("VERSION_INFO", __version__), ('EIGEN_DONT_PARALLELIZE', None), ('_OPENMP', None)],
+        define_macros=[("VERSION_INFO", __version__), ('EIGEN_DONT_PARALLELIZE', None)],
         extra_compile_args = extra_compile_args,
         extra_link_args = extra_link_args,
         include_dirs=["src/"]

@@ -27,11 +27,87 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+
+#ifdef _MSC_VER
+/* MSVC lacks getopt.h, libgen.h, strings.h and ftello/fseeko,
+ * so minimal replacements are provided here. */
+
+#define strdup _strdup
+#define ftello _ftelli64
+#define fseeko _fseeki64
+#define off_t __int64
+
+static char *optarg = NULL;
+static int   optind = 1;
+
+/* POSIX getopt: stops at the first non-option argument. */
+static int getopt(int argc, char *const argv[], const char *optstring){
+    static int  charind = 1;
+    const char *spec;
+    char       *arg;
+    int         c;
+
+    optarg = NULL;
+    if (optind >= argc) return(-1);
+    arg = argv[optind];
+    if (charind == 1){
+        if (arg[0] != '-' || arg[1] == '\0') return(-1);
+        if (strcmp(arg,"--") == 0){
+            optind++;
+            return(-1);
+        }
+    }
+    c = arg[charind++];
+    spec = strchr(optstring,c);
+    if (c == ':' || spec == NULL){
+        fprintf(stderr,"%s: invalid option -- '%c'\n",argv[0],c);
+        if (arg[charind] == '\0'){
+            optind++;
+            charind = 1;
+        }
+        return('?');
+    }
+    if (spec[1] == ':'){
+        if (arg[charind] != '\0'){
+            optarg = &arg[charind];
+            optind++;
+        }
+        else if (optind + 1 < argc){
+            optarg = argv[optind + 1];
+            optind += 2;
+        }
+        else {
+            fprintf(stderr,"%s: option requires an argument -- '%c'\n",
+                    argv[0],c);
+            optind++;
+            charind = 1;
+            return('?');
+        }
+        charind = 1;
+    }
+    else if (arg[charind] == '\0'){
+        optind++;
+        charind = 1;
+    }
+    return(c);
+}
+
+/* Returns the file name part of a path, accepting both separators. */
+static char *basename(char *path){
+    char *p;
+    char *name = path;
+
+    for (p = path; *p; p++){
+        if (*p == '/' || *p == '\\' || *p == ':') name = p + 1;
+    }
+    return(name);
+}
+#else
 #include <getopt.h>
 #include <libgen.h>
-
 #include <strings.h>
-#include <math.h>
+#endif
 
 /* --- */
 #define VERSION_STRING "0.4.0"
@@ -355,12 +431,12 @@ int allocate_protein_list_t (
     protein_list_t *plist;
     size_t          size;
 
-    if ((plist = calloc(1,sizeof(protein_list_t))) == NULL){
+    if ((plist = (protein_list_t*)calloc(1,sizeof(protein_list_t))) == NULL){
         fprintf(stderr,"Failed allocating header in allocate_protein_list_t.\n");
         retval = ERROR_FAILED;
     }
     else {
-        plist->protein = calloc(len,sizeof(protein_sequence_t));
+        plist->protein = (struct ProteinSequence*)calloc(len,sizeof(protein_sequence_t));
 #if __DEBUG
         fprintf(stderr,"The protein_list_t data appended to %p is located at %p and has "\
                 "size of %u bytes.\n",plist,plist->protein,size);
@@ -405,7 +481,7 @@ int expand_protein_list (
 
     new_len   = list->maxlen + delta;
     new_size  = new_len*sizeof(protein_sequence_t);
-    new_array = realloc(list->protein,new_size);
+    new_array = (protein_sequence_t*)realloc(list->protein,new_size);
 
     if (new_array != NULL){
 
@@ -489,7 +565,7 @@ int fgets_full_line (
 
     if ((*linebuffer_p==NULL)||(*buflen_p==0)){
         buflen = LINE_BUFFER_LENGTH_INIT;
-        if ((linebuffer=calloc(buflen,sizeof(char)))==NULL){
+        if ((linebuffer=(char*)calloc(buflen,sizeof(char)))==NULL){
             fprintf(stderr,"Failed allocating line buffer in "\
                     "fgets_full_line.\n");
             retval = ERROR_FAILED;
@@ -514,7 +590,7 @@ int fgets_full_line (
     }
     while (strlen(linebuffer) >= (buflen-1)){
         buflen += LINE_BUFFER_LENGTH_DELTA;
-        if ((linebuffer=realloc(linebuffer,buflen))==NULL){
+        if ((linebuffer=(char*)realloc(linebuffer,buflen))==NULL){
             fprintf(stderr,"Failed expanding line buffer "\
                     "in fgets_full_line.\n");
             retval = ERROR_FAILED;
@@ -569,7 +645,7 @@ int parse_fasta_file (
     /* Preliminaries before start parsing the
      * fasta file. */
 
-    if ( (sequence_buffer = calloc((max_fill+1),sizeof(char)))==NULL ){
+    if ( (sequence_buffer = (char*)calloc((max_fill+1),sizeof(char)))==NULL ){
         fprintf(stderr,"Failed allocating sequence buffer in parse_fasta_file.\n");
         return ERROR_FAILED;
     }
@@ -655,7 +731,7 @@ int parse_fasta_file (
              * anything */
             if (sequence_buffer_fill >= max_fill){
                 max_fill = sequence_buffer_fill;
-                if ((sequence_buffer = realloc(sequence_buffer,
+                if ((sequence_buffer = (char*)realloc(sequence_buffer,
                                         (max_fill+1)*sizeof(char)))==NULL){
                     fprintf(stderr,"Failed expanding sequence buffer in parse_fasta_file.\n");
                     retval = ERROR_FAILED;
@@ -720,13 +796,13 @@ int allocate_uint_vector_t (
     int            retval = 0;
     uint_vector_t *vec_p;
 
-    if ((vec_p=calloc(1,sizeof(uint_vector_t)))==NULL){
+    if ((vec_p=(uint_vector_t*)calloc(1,sizeof(uint_vector_t)))==NULL){
         fprintf(stderr,"Failed allocating header in "\
                 "allocate_uint_vector_t.\n");
         retval = ERROR_FAILED;
     }
     else {
-        if ((vec_p->element=calloc(len,sizeof(unsigned int)))==NULL){
+        if ((vec_p->element=(unsigned int*)calloc(len,sizeof(unsigned int)))==NULL){
             fprintf(stderr,"Failed allocating data in "\
                     "allocate_uint_vector_t.\n");
             retval = ERROR_FAILED;
@@ -757,7 +833,7 @@ int expand_uint_vector_t (
     }
     else {
         vec->maxlen += delta;
-        if ((vec->element=realloc(vec->element,
+        if ((vec->element=(unsigned int*)realloc(vec->element,
                    (vec->maxlen)*sizeof(unsigned int)))==NULL){
             fprintf(stderr,"Failed to expand uint_vector_t data.\n");
             retval = ERROR_FAILED;
@@ -870,7 +946,7 @@ int append_to_string_list_t (
 
     if (slist->len >= slist->maxlen){
         slist->maxlen += APPEND_TO_STRING_LIST_DELTA;
-        if ((slist->string = realloc(slist->string,
+        if ((slist->string = (char**)realloc(slist->string,
                     (slist->maxlen)*sizeof(char *)))==NULL){
             fprintf(stderr,"Failed to expand data in "\
                     "append_to_string_list_t.\n");
@@ -1043,12 +1119,12 @@ int allocate_string_list_t (
     unsigned int   i;
     int            retval=0;
 
-    if ((sl=calloc(1,sizeof(string_list_t)))==NULL){
+    if ((sl=(string_list_t*)calloc(1,sizeof(string_list_t)))==NULL){
         fprintf(stderr,"Failed to allocate header in allocate_string_list_t.\n");
         retval = ERROR_FAILED;
     }
     else {
-        if ((sl->string=calloc(len,sizeof(char *)))==NULL){
+        if ((sl->string=(char**)calloc(len,sizeof(char *)))==NULL){
             fprintf(stderr,"Failed to allocate data in allocate_string_list_t.\n");
             retval=ERROR_FAILED;
         }
@@ -1164,7 +1240,7 @@ int char_tree_node_create (
     char_tree_node_t *node;
     int               retval=0;
 
-    if ((node=calloc(1,sizeof(char_tree_node_t)))==NULL){
+    if ((node=(char_tree_node_t*)calloc(1,sizeof(char_tree_node_t)))==NULL){
         fprintf(stderr,"FAiled allcating char node in char_tree_node_create.\n");
         retval = ERROR_FAILED;
     }
@@ -1197,7 +1273,7 @@ int char_tree_init (
         fprintf(stderr,"NULL aplhabet pointer in char_tree_init.\n");
         retval = ERROR_FAILED;
     }
-    if ((def=calloc(1,
+    if ((def=(char_tree_definition_t*)calloc(1,
                 sizeof(char_tree_definition_t)))==NULL){
         fprintf(stderr,"Failed allocating alphabet "\
                 "structure in char_tree_init.\n");
@@ -1240,7 +1316,7 @@ int char_tree_enter (
         }
         else {
             if (node->branch==NULL){
-                if ((node->branch=calloc(node->def->len,
+                if ((node->branch=(struct CharTreeNode**)calloc(node->def->len,
                                 sizeof(char_tree_node_t *)))==NULL){
                     fprintf(stderr,
                             "Failed allocating node branches in char_tree_enter.\n");
@@ -1435,7 +1511,7 @@ int allocate_peptide_list_t (
     unsigned int    *ovec;
     int              retval = 0;
 
-    if((peplist=calloc(1,sizeof(peptide_list_t)))==NULL){
+    if((peplist=(peptide_list_t*)calloc(1,sizeof(peptide_list_t)))==NULL){
         fprintf(stderr,"Failed allocating main struct "\
                 "in allocate_peptide_list_t.\n");
         retval = ERROR_FAILED;
@@ -1443,7 +1519,7 @@ int allocate_peptide_list_t (
     else {
         peplist->maxlen = DEFAULT_PEPTIDE_LIST_INIT_LEN;
         peplist->len    = 0;
-        if((seq=calloc((peplist->maxlen),sizeof(char*)))==NULL){
+        if((seq=(char**)calloc((peplist->maxlen),sizeof(char*)))==NULL){
             fprintf(stderr,"Failed allocating sequence vector "\
                     "allocate_peptide_list_t.\n");
             retval = ERROR_FAILED;
@@ -1451,7 +1527,7 @@ int allocate_peptide_list_t (
         else {
             peplist->peptide = seq;
         }
-        if((ovec=calloc((peplist->maxlen),sizeof(int)))==NULL){
+        if((ovec=(unsigned int*)calloc((peplist->maxlen),sizeof(int)))==NULL){
             fprintf(stderr,"Failed allocating offset vector "\
                     "in allocate_peptide_list_t.\n");
             retval = ERROR_FAILED;
@@ -1501,12 +1577,12 @@ int append_to_peptide_list_t (
 
         peplist->maxlen += DEFAULT_PEPTIDE_LIST_DELTA_LEN;
 
-        if ((peplist->peptide=realloc(peplist->peptide,(peplist->maxlen)*sizeof(char*)))==NULL){
+        if ((peplist->peptide=(char**)realloc(peplist->peptide,(peplist->maxlen)*sizeof(char*)))==NULL){
             fprintf(stderr,"Failed extending sequence vector in "\
                     "append_to_peptide_list_t.\n");
             retval = ERROR_FAILED;
         }
-        if ((peplist->offset=realloc(peplist->offset,(peplist->maxlen)*sizeof(int)))==NULL){
+        if ((peplist->offset=(unsigned int*)realloc(peplist->offset,(peplist->maxlen)*sizeof(int)))==NULL){
             fprintf(stderr,"Failed extending offset vector in "\
                     "append_to_peptide_list_t.\n");
             retval = ERROR_FAILED;
@@ -1624,7 +1700,7 @@ int create_new_fasta_list (
     char **fasta_list;
     int    retval=0;
 
-    if ((fasta_list = calloc(len,sizeof(char*))) == NULL){
+    if ((fasta_list = (char**)calloc(len,sizeof(char*))) == NULL){
         fprintf(stderr,"Failed allocating fasta file list in create_new_fasta_list.\n");
         retval = ERROR_FAILED;
     }
@@ -1652,7 +1728,7 @@ int extend_fasta_list (
 
     new_len = params->max_fastas + len;
 
-    if((params->fasta=realloc(params->fasta,new_len*sizeof(char*)))==NULL){
+    if((params->fasta=(char**)realloc(params->fasta,new_len*sizeof(char*)))==NULL){
         fprintf(stderr,"Failed expanding fasta file list "\
                 "in extend_fasta_list.\n");
         retval = ERROR_FAILED;
@@ -1828,7 +1904,7 @@ int init_params (
     params_t *params;
     int       retval=0;
 
-    if((params = calloc(1,sizeof(params_t))) == NULL){
+    if((params = (params_t*)calloc(1,sizeof(params_t))) == NULL){
         fprintf(stderr,"Failed allocating basic parameter structure in "\
                 "init_params.\n");
         retval = ERROR_FAILED;
@@ -2216,12 +2292,12 @@ int append_protein_loc_to_leaf (
 
         leaf_data->maxprots += DEFAULT_NODE_PROTEIN_LIST_DELTA;
 
-        if((leaf_data->protein=realloc(leaf_data->protein,(leaf_data->maxprots)*sizeof(char*)))==NULL){
+        if((leaf_data->protein=(char**)realloc(leaf_data->protein,(leaf_data->maxprots)*sizeof(char*)))==NULL){
             fprintf(stderr,"Failed extending protein list in "\
                     "append_protein_loc_to_leaf.\n");
             retval = ERROR_FAILED;
         }
-        if((leaf_data->offset=realloc(leaf_data->offset,(leaf_data->maxprots)*sizeof(int)))==NULL){
+        if((leaf_data->offset=(int*)realloc(leaf_data->offset,(leaf_data->maxprots)*sizeof(int)))==NULL){
             fprintf(stderr,"Failed extending offset list in "\
                     "append_protein_loc_to_leaf.\n");
             retval = ERROR_FAILED;
@@ -2263,7 +2339,7 @@ int append_fasta_id_to_leaf (
     
             leaf_data->maxfastas += DEFAULT_NODE_FASTA_LIST_DELTA;
     
-            if((leaf_data->fasta_id=realloc(leaf_data->fasta_id,(leaf_data->maxfastas)*sizeof(int)))==NULL){
+            if((leaf_data->fasta_id=(int*)realloc(leaf_data->fasta_id,(leaf_data->maxfastas)*sizeof(int)))==NULL){
                 fprintf(stderr,"Failed extending node fasta list in "\
                         "append_fasta_id_to_leaf.\n");
                 retval = ERROR_FAILED;
@@ -2320,14 +2396,14 @@ int create_new_leaf_data (
     node_data_t *leaf_data;
     int          retval=0;
 
-    if ((leaf_data=calloc(1,sizeof(node_data_t)))==NULL){
+    if ((leaf_data=(node_data_t*)calloc(1,sizeof(node_data_t)))==NULL){
         fprintf(stderr,"Failed allocating space for node "\
                 "data in create_new_leaf_data.\n");
         retval = ERROR_FAILED;
     }
     else {
         leaf_data->maxfastas = DEFAULT_NODE_FASTA_LIST_INIT;
-        if((leaf_data->fasta_id=calloc((leaf_data->maxfastas),sizeof(int)))==NULL){
+        if((leaf_data->fasta_id=(int*)calloc((leaf_data->maxfastas),sizeof(int)))==NULL){
             fprintf(stderr,"Failed allocating fasta list in "\
                     "create_new_leaf_data.\n");
             retval = ERROR_FAILED;
@@ -2341,12 +2417,12 @@ int create_new_leaf_data (
             }
         }
         leaf_data->maxprots = DEFAULT_NODE_PROTEIN_LIST_INIT;
-        if((leaf_data->protein=calloc((leaf_data->maxprots),sizeof(char*)))==NULL){
+        if((leaf_data->protein=(char**)calloc((leaf_data->maxprots),sizeof(char*)))==NULL){
             fprintf(stderr,"Failed allocating protein list in "\
                     "create_new_leaf_data.\n");
             retval = ERROR_FAILED;
         }
-        if((leaf_data->offset=calloc((leaf_data->maxprots),sizeof(int)))==NULL){
+        if((leaf_data->offset=(int*)calloc((leaf_data->maxprots),sizeof(int)))==NULL){
             fprintf(stderr,"Failed allocating offset list in "\
                     "create_new_leaf_data.\n");
             retval = ERROR_FAILED;
@@ -2489,7 +2565,7 @@ int store_fasta_into_peptide_tree (
     if(retval) return retval;
 
 
-    if((message=calloc(1,sizeof(message_t)))==NULL){
+    if((message=(message_t*)calloc(1,sizeof(message_t)))==NULL){
         fprintf(stderr,"Failed allocating payload object in "\
                 "store_fasta_into_peptide_tree.\n");
         retval = ERROR_FAILED;
@@ -2601,7 +2677,7 @@ int allocate_ptm_locations_t (
     ptm_locations_t *poff;
     int              retval=0;
 
-    if((poff=calloc(1,sizeof(ptm_locations_t)))==NULL){
+    if((poff=(ptm_locations_t*)calloc(1,sizeof(ptm_locations_t)))==NULL){
         fprintf(stderr,"Failed allocating main struct "\
                 "in allocate_ptm_locations_t.\n");
         retval = ERROR_FAILED;
@@ -2691,7 +2767,7 @@ int sprint_sitespec (
 
             *reslen_p += SITESPEC_LEN_DELTA ;
             alarmlen = (int) ceil((*reslen_p) * 0.95);
-            if( (*sitespec_p = realloc(*sitespec_p, (*reslen_p) *sizeof(char))) == NULL){
+            if( (*sitespec_p = (char*)realloc(*sitespec_p, (*reslen_p) *sizeof(char))) == NULL){
                 fprintf(stderr,"Failed expanding sitespec buffer in "\
                         "sprint_sitespec.\n");
                 retval = ERROR_FAILED;
@@ -2729,7 +2805,7 @@ int gen_sitespec (
 
     res_len = SITESPEC_LEN_INIT;
 
-    if((sitespec=calloc(res_len,sizeof(char)))==NULL){
+    if((sitespec=(char*)calloc(res_len,sizeof(char)))==NULL){
         fprintf(stderr,"Failed allocating response buffer in "\
                 "gen_sitespec.\n");
         retval = ERROR_FAILED;
@@ -2830,7 +2906,7 @@ int gen_fastas_found (
     buffer_len = tot_len + (ndata->nfastas -1) + 5;
 
     /* And we create a buffer to list the names. */
-    if((buffer=calloc(buffer_len,sizeof(char)))==NULL){
+    if((buffer=(char*)calloc(buffer_len,sizeof(char)))==NULL){
         fprintf(stderr,"Failed allocating fasta file buffer "\
                 "in gen_fastas_found.\n");
         retval = ERROR_FAILED;
@@ -2880,7 +2956,7 @@ int gen_proteins_found (
 
     res_len = PROTEINS_FOUND_BUFFER_LEN_INIT;
 
-    if((proteins=calloc(res_len,sizeof(char)))==NULL){
+    if((proteins=(char*)calloc(res_len,sizeof(char)))==NULL){
         fprintf(stderr,"Failed allocating protein spec string "\
                 "in gen_proteins_found.\n");
         retval = ERROR_FAILED;
@@ -2907,7 +2983,7 @@ int gen_proteins_found (
 
             res_len += PROTEINS_FOUND_BUFFER_LEN_DELTA ;
 
-            if( (proteins=realloc(proteins,res_len*sizeof(char))) == NULL){
+            if( (proteins=(char*)realloc(proteins,res_len*sizeof(char))) == NULL){
                 fprintf(stderr,"Failed expanding found protein "\
                         "buffer length in gen_proteins_found.\n");
                 retval = ERROR_FAILED;
@@ -3020,12 +3096,12 @@ int extract_backbone (
 
     /* Here we stoe the peptide offsets of
      * the fond modifications. */
-    if((moffs=calloc(maxmods,sizeof(int)))==NULL){
+    if((moffs=(int*)calloc(maxmods,sizeof(int)))==NULL){
         fprintf(stderr,"Failed allocating mod array in "\
                 "extract_backbone.\n");
         retval = ERROR_FAILED;
     }
-    if((mtypes=calloc(maxmods,sizeof(char)))==NULL){
+    if((mtypes=(char*)calloc(maxmods,sizeof(char)))==NULL){
         fprintf(stderr,"Failed allocating mod type array in "\
                 "extract_backbone.\n");
         retval = ERROR_FAILED;
@@ -3064,12 +3140,12 @@ int extract_backbone (
                 *next_end = '\0';
                 if(nmods >= maxmods){
                     maxmods += MOD_VEC_LEN_DELTA ;
-                    if ( (moffs=realloc(moffs,maxmods*sizeof(int)))==NULL ){
+                    if ( (moffs=(int*)realloc(moffs,maxmods*sizeof(int)))==NULL ){
                         fprintf(stderr,"Failed axpanding mod vector in "\
                                 "extract_backbone.\n");
                         retval = ERROR_FAILED;
                     }
-                    if ( (mtypes=realloc(mtypes,maxmods*sizeof(char)))==NULL ){
+                    if ( (mtypes=(char*)realloc(mtypes,maxmods*sizeof(char)))==NULL ){
                         fprintf(stderr,"Failed axpanding mod type vector in "\
                                 "extract_backbone.\n");
                         retval = ERROR_FAILED;
@@ -3124,7 +3200,7 @@ int gen_local_modoffsets (
 
     res_len = MOD_OFFSET_STRING_LEN_INIT ;
 
-    if((mspec=calloc(res_len,sizeof(char)))==NULL){
+    if((mspec=(char*)calloc(res_len,sizeof(char)))==NULL){
         fprintf(stderr,"Failed allocating local mod offset "\
                 "output table value in gen_local_modoffsets.\n");
         retval = ERROR_FAILED;
@@ -3149,7 +3225,7 @@ int gen_local_modoffsets (
             if( totlen >= alarmlen ){
 
                 res_len += MOD_OFFSET_STRING_LEN_DELTA ;
-                if((mspec=realloc(mspec,res_len*sizeof(char)))==NULL){
+                if((mspec=(char*)realloc(mspec,res_len*sizeof(char)))==NULL){
                     fprintf(stderr,"Failed expanding mod offset buffer "\
                             "in gen_local_modoffsets.\n");
                     retval = ERROR_FAILED;
@@ -3203,7 +3279,7 @@ int sprintf_phospho_spec (
 
         if(totlen >= alarmlen){
             *reslen_p += SITESPEC_LEN_DELTA ;
-            if ((*phspec_p = realloc( *phspec_p ,(*reslen_p)*sizeof(char)))==NULL){
+            if ((*phspec_p = (char*)realloc( *phspec_p ,(*reslen_p)*sizeof(char)))==NULL){
                 fprintf(stderr,"Failed expanding phospho spec buffer in "\
                         "sprintf_phospho_spec.\n");
                 retval = ERROR_FAILED;
@@ -3245,7 +3321,7 @@ int gen_phospho_spec (
 
     if(nphospho > 0){
         reslen = SITESPEC_LEN_INIT;
-        if((phspec=calloc(reslen,sizeof(char)))==NULL){
+        if((phspec=(char*)calloc(reslen,sizeof(char)))==NULL){
             fprintf(stderr,"Failed allocating phosho spec in "\
                     "gen_phospho_spec.\n");
             retval = ERROR_FAILED;
@@ -3253,7 +3329,7 @@ int gen_phospho_spec (
         else{
             start = phspec;
 
-            if((ph_offs=calloc(nphospho,sizeof(int)))==NULL){
+            if((ph_offs=(int*)calloc(nphospho,sizeof(int)))==NULL){
                 fprintf(stderr,"Failed allocating phospho offsets "\
                         "in gen_phospho_spec.\n");
                 retval = ERROR_FAILED;
@@ -3500,7 +3576,7 @@ int determine_proc_mode (
 
     n_targets = params->targets->len;
 
-    if((proc_mods=calloc(n_targets,sizeof(int)))==NULL){
+    if((proc_mods=(int*)calloc(n_targets,sizeof(int)))==NULL){
         fprintf(stderr,"Failed allocating processing mode vector in "\
                 "determine_proc_mode.\n");
         retval = ERROR_FAILED;
@@ -3593,7 +3669,7 @@ int append_to_static_fields_t (
 
     if( stat->len >= stat->maxlen ){
         stat->maxlen += HEADER_LIST_LEN_DELTA;
-        if((stat->string=realloc(stat->string,(stat->maxlen)*sizeof(char *)))==NULL){
+        if((stat->string=(char**)realloc(stat->string,(stat->maxlen)*sizeof(char *)))==NULL){
             fprintf(stderr,"Failed expanding pointer "\
                     "vector in append_to_static_fields_t.\n");
             retval = ERROR_FAILED;
@@ -3618,13 +3694,13 @@ int allocate_static_fields_t (
     char            **pvec;
     int               retval=0;
 
-    if((sf=calloc(1,sizeof(static_fields_t)))==NULL){
+    if((sf=(static_fields_t*)calloc(1,sizeof(static_fields_t)))==NULL){
         fprintf(stderr,"Failed allocating main struct in "\
                 "allocate_static_fields_t.\n");
         retval = ERROR_FAILED;
     }
     else {
-        if((pvec=calloc(len,sizeof(char*)))==NULL){
+        if((pvec=(char**)calloc(len,sizeof(char*)))==NULL){
             fprintf(stderr,"Failed allocating pointer array in "\
                     "allocate_static_fields_t.\n");
             retval = ERROR_FAILED;
@@ -4078,7 +4154,7 @@ int init_column_index (
 ){
     int *column_index,i,retval = 0;
 
-    if((column_index=calloc((params->targets->len),sizeof(int)))==NULL){
+    if((column_index=(int*)calloc((params->targets->len),sizeof(int)))==NULL){
         fprintf(stderr,"Failed allocating column index vector "\
                 "in init_column_index.\n");
         retval = ERROR_FAILED;

@@ -36,6 +36,8 @@ pip install pybind11
 pip install msproteomics
 ```
 
+On Windows with a regular Python installation, the package is compiled with Microsoft Visual C++. Install the [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (select "Desktop development with C++") and then run `pip install msproteomics`.
+
 On a Windows Cygwin system with python39, g++ (GCC) 12.4.0, and matplotlib 3.5.1 pre-installed, the following works
 
 ```
