@@ -524,7 +524,7 @@ void siteloc(py::list inlist) {
         argv[i] = (char*)PyUnicode_AsUTF8(inlist[i].ptr());
     }
 
-    int ret = main(argc, argv);
+    int ret = siteloc_main(argc, argv);
 
     free(ptr);
 }

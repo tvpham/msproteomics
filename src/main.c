@@ -966,7 +966,7 @@ int append_to_string_list_t (
 int append_to_string_list_t_dup (
 
         string_list_t *slist,
-        char          *field
+        const char    *field
 ){
     char *copy;
     int   retval=0;
@@ -1261,7 +1261,7 @@ int char_tree_node_create (
 
 int char_tree_init (
 
-        char              *alph,
+        const char        *alph,
         char_tree_node_t **root_p
 
 ){
@@ -4513,8 +4513,8 @@ int process_input_file (
 
 /* === MAIN PROGRAM === */
 
-int main(
-        
+int siteloc_main(
+
         int    argc,
         char **argv
         
